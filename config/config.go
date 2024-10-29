@@ -11,7 +11,9 @@ import (
 
 // Config represents configuration for the exporter.
 type Config struct {
-	Targets []TargetConfig `yaml:"targets"`
+	// 标签
+	Labels  map[string]string `yaml:"labels"`
+	Targets []TargetConfig    `yaml:"targets"`
 
 	Ping struct {
 		Interval duration `yaml:"interval"`

@@ -3,8 +3,9 @@ package main
 import "github.com/czerwonk/ping_exporter/config"
 
 type customLabelSet struct {
-	names   []string
-	nameMap map[string]interface{}
+	names    []string
+	extNames []string
+	nameMap  map[string]interface{}
 }
 
 func newCustomLabelSet(targets []config.TargetConfig) *customLabelSet {
@@ -30,6 +31,16 @@ func (cl *customLabelSet) addLabelsForTarget(t *config.TargetConfig) {
 	}
 }
 
+func (cl *customLabelSet) AddLabelKV(key, value string) {
+	_, exists := cl.nameMap[key]
+	if exists {
+		return
+	}
+
+	cl.extNames = append(cl.extNames, key)
+	cl.nameMap[key] = value
+}
+
 func (cl *customLabelSet) addLabel(name string) {
 	_, exists := cl.nameMap[name]
 	if exists {
@@ -41,7 +52,7 @@ func (cl *customLabelSet) addLabel(name string) {
 }
 
 func (cl *customLabelSet) labelNames() []string {
-	return cl.names
+	return append(cl.extNames, cl.names...)
 }
 
 func (cl *customLabelSet) labelValues(t config.TargetConfig) []string {
@@ -55,6 +66,20 @@ func (cl *customLabelSet) labelValues(t config.TargetConfig) []string {
 			values[i] = value
 		}
 	}
+	return values
+}
+
+func (cl *customLabelSet) labelValuesByName(name []string) []string {
+	values := []string{}
+
+	for _, n := range name {
+		if val, isSet := cl.nameMap[n]; isSet {
+			if v, ok := val.(string); ok {
+				values = append(values, v)
+			}
+		}
+	}
 
 	return values
+
 }

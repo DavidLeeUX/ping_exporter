@@ -24,23 +24,31 @@ type pingCollector struct {
 	customLabels *customLabelSet
 	metrics      map[string]*mon.Metrics
 
-	rttDesc    scaledMetrics
-	bestDesc   scaledMetrics
-	worstDesc  scaledMetrics
-	meanDesc   scaledMetrics
-	stddevDesc scaledMetrics
-	lossDesc   *prometheus.Desc
-	progDesc   *prometheus.Desc
+	rttDesc      scaledMetrics
+	bestDesc     scaledMetrics
+	worstDesc    scaledMetrics
+	meanDesc     scaledMetrics
+	stddevDesc   scaledMetrics
+	lossDesc     *prometheus.Desc
+	progDesc     *prometheus.Desc
+	extendLabels []string
 }
 
 func NewPingCollector(enableDeprecatedMetrics bool, unit rttUnit, monitor *mon.Monitor, cfg *config.Config) *pingCollector {
+	extendLabels := []string{}
 	ret := &pingCollector{
 		monitor:                 monitor,
 		enableDeprecatedMetrics: enableDeprecatedMetrics,
 		rttUnit:                 unit,
 		cfg:                     cfg,
+		extendLabels:            []string{},
 	}
 	ret.customLabels = newCustomLabelSet(cfg.Targets)
+	for LabelName, LabelValue := range cfg.Labels {
+		extendLabels = append(extendLabels, LabelName)
+		ret.customLabels.AddLabelKV(LabelName, LabelValue)
+	}
+	ret.extendLabels = extendLabels
 	ret.createDesc()
 	return ret
 }
@@ -50,6 +58,9 @@ func (p *pingCollector) UpdateConfig(cfg *config.Config) {
 	defer p.mutex.Unlock()
 	p.cfg.Targets = cfg.Targets
 	p.customLabels = newCustomLabelSet(cfg.Targets)
+	for LabelName, LabelValue := range cfg.Labels {
+		p.customLabels.AddLabelKV(LabelName, LabelValue)
+	}
 	p.createDesc()
 }
 
@@ -79,6 +90,7 @@ func (p *pingCollector) Collect(ch chan<- prometheus.Metric) {
 		l := strings.SplitN(target, " ", 3)
 
 		targetConfig := p.cfg.TargetConfigByAddr(l[0])
+		l = append(l, p.customLabels.labelValuesByName(p.extendLabels)...)
 		l = append(l, p.customLabels.labelValues(targetConfig)...)
 
 		if metrics.PacketsSent > metrics.PacketsLost {
